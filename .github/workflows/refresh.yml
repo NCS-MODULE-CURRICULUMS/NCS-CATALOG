@@ -1,0 +1,32 @@
+name: NCS 데이터 갱신
+
+on:
+  schedule:
+    - cron: "0 18 1 * *"   # 매월 1일 03:00 KST
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - name: NCS 수집
+        run: python scripts/fetch_ncs.py 20
+
+      - name: 변경 시 PR 생성
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: chore/ncs-refresh
+          title: "chore: NCS 데이터 갱신"
+          commit-message: "chore: NCS 데이터 갱신 (자동)"
+          body: |
+            `scripts/fetch_ncs.py` 자동 실행 결과입니다.
+
+            **확인할 것**
+            - [ ] 신설 세분류 / 능력단위 → `mapping-domain.yml` 반영 필요?
+            - [ ] 폐지된 능력단위 → 이를 참조하는 `CURRICULUM-*` 교안 있는지
+            - [ ] 버전 변경(`_YYvN`) → 교안 내용 갱신 필요?
+          labels: ncs-refresh

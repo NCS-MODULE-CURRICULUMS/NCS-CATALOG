@@ -1,0 +1,70 @@
+# 도메인 ↔ NCS 세분류 매핑
+# - 이 파일만 우리(강사진)의 판단이고, 나머지 data/*.csv 는 ncs.go.kr 원본이다.
+# - primary : 해당 도메인 커리큘럼 repo가 "소유"하는 세분류 (모듈 폴더를 만든다)
+# - related : 참조만 하고 모듈은 다른 repo에 두는 세분류
+version: 1
+ncs_degr: 29          # NCS 개정차수
+source_fetched: 2026-09-16
+
+domains:
+  web-app:
+    repo: CURRICULUM-WEB-APP
+    label: 웹앱 / 풀스택
+    primary:
+      - { code: "20010202", name: 응용SW엔지니어링 }
+      - { code: "20010207", name: UI/UX엔지니어링 }
+      - { code: "20010204", name: DB엔지니어링 }
+      - { code: "20010201", name: SW아키텍처 }
+    related:
+      - { code: "20010403", name: IT테스트 }
+      - { code: "20010104", name: SW제품기획 }
+
+  security:
+    repo: CURRICULUM-SECURITY
+    label: 정보보안
+    primary:
+      - { code: "20010206", name: 보안엔지니어링 }
+      - { code: "20010601", name: 정보보호관리·운영 }
+      - { code: "20010602", name: 정보보호진단·분석 }
+      - { code: "20010603", name: 보안사고분석대응 }
+      - { code: "20010608", name: 디지털포렌식 }
+      - { code: "20010612", name: 클라우드 보안 관리·운영 }
+      - { code: "20010615", name: SW공급망보안 }
+      - { code: "20010611", name: OT보안 }
+      - { code: "20010616", name: 모빌리티보안 }
+    related:
+      - { code: "20011101", name: 개인정보보호관리운영 }
+      - { code: "20010604", name: 정보보호암호·인증 }
+
+  cloud-infra:
+    repo: CURRICULUM-CLOUD-INFRA
+    label: 클라우드 / 인프라 / DevOps
+    primary:
+      - { code: "20010214", name: 클라우드솔루션아키텍처 }
+      - { code: "20010215", name: 클라우드인프라스트럭쳐엔지니어링 }
+      - { code: "20010216", name: PaaS엔지니어링 }
+      - { code: "20010213", name: 인프라스트럭쳐아키텍처구축 }
+      - { code: "20010301", name: IT시스템관리 }
+    related:
+      - { code: "20010205", name: NW엔지니어링 }
+      - { code: "20020110", name: 클라우드플랫폼구축 }   # 중분류 02.통신기술 소속
+      - { code: "20010615", name: SW공급망보안 }         # DevSecOps 연계
+
+  ai-data:
+    repo: CURRICULUM-AI-DATA
+    label: AI / 머신러닝·딥러닝 / 데이터
+    primary:
+      - { code: "20010703", name: 인공지능모델링 }
+      - { code: "20010707", name: 생성형AI엔지니어링 }
+      - { code: "20010705", name: 인공지능서비스구현 }
+      - { code: "20010701", name: 인공지능플랫폼구축 }
+      - { code: "20010704", name: 인공지능서비스운영관리 }
+      - { code: "20010706", name: 인공지능학습데이터구축 }
+      - { code: "20010702", name: 인공지능서비스기획 }
+      - { code: "20010105", name: 빅데이터분석 }
+      - { code: "20010209", name: 빅데이터플랫폼구축 }
+      - { code: "20010304", name: 빅데이터운영·관리 }
+    related:
+      - { code: "20010107", name: 빅데이터기획 }
+      - { code: "20010211", name: 데이터아키텍처 }
+      - { code: "20010708", name: 로우코드 AI Agent }   # 세분류만 신설, 능력단위 미공개(0건)
