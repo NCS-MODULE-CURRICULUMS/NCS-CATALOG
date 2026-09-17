@@ -19,6 +19,7 @@ import csv
 import html
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -77,21 +78,38 @@ CSS = """<style>
   .ccard h3 small{display:block;font-weight:400;color:#555;font-size:11.5px;margin-top:3px}
   .ccard:hover h3 small{color:#ccc}
   td.wip{font-weight:700}
+  .flag{font-weight:700;border:1px solid #000;padding:0 5px;font-size:11px;margin-left:6px}
   .tot{font-size:12.5px;color:#555;margin:10px 0 0}
 </style>
 """
 
 
-def stat_dl(u_all, subs_n=None):
+def lv_range(levels):
+    v = sorted(x for x in levels if x)
+    return f"{v[0]}~{v[-1]}" if v else "—"
+
+
+def level_of(uc, u, ncs):
+    """수준은 NCS 원본(competency-units.csv)이 기준이다.
+    교안 머리말의 값은 사람이 적은 것이라 원본이 있으면 원본을 쓴다."""
+    v = (ncs.get(uc) or {}).get("수준", "")
+    if v and v.isdigit():
+        return int(v)
+    return u.get("lv")
+
+
+def stat_dl(u_all, levels, subs_n=None):
     """카드에 붙는 집계 — 전부 계산된 값이고 손으로 적지 않는다."""
     n = len(u_all)
     hr = sum(u["hr"] or 0 for u in u_all)
     wip = sum(1 for u in u_all if u["stg"] >= 1)
     pdf = sum(u["has"]["pdf"] for u in u_all)
+    lv = sorted(x for x in levels if x)
     rows = []
     if subs_n is not None:
         rows.append(("세분류", f"{subs_n}개"))
     rows += [("능력단위", f"{n}개"),
+             ("수준", f"{lv[0]}~{lv[-1]}" if lv else "—"),
              ("교안", f"작성 {wip} / 골격 {n - wip}"),
              ("학습모듈", f"{pdf}건")]
     if hr:
@@ -148,6 +166,8 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     cards, n_pages = [], 0
 
+    lvl = {uc: level_of(uc, u, ncs) for uc, u in units.items()}
+
     for dom, dv in doms.items():
         d_units = [u for u in units.values() if u["d"] == dom]
         cards.append({
@@ -157,6 +177,7 @@ def main():
             "wip": sum(1 for u in d_units if u["stg"] >= 1),
             "pdf": sum(u["has"]["pdf"] for u in d_units),
             "placed": sum(1 for u in dv["subs"] for c in subs[u]["units"] if c in placed),
+            "lv": lv_range([lvl[c] for s in dv["subs"] for c in subs[s]["units"]]),
         })
 
         # ── 도메인 페이지 : 세분류 카드
@@ -169,7 +190,7 @@ def main():
             body.append(
                 f'<div class="cwrap"><a class="ccard" href="{dom}-{code}.html">'
                 f'<h3>{esc(sv["name"])}<small>{esc(code)}</small></h3>'
-                + stat_dl(su)
+                + stat_dl(su, [lvl[c] for c in sv["units"]])
                 + f'<span class="go">{esc(go)}</span></a></div>')
 
         (OUT / f"{dom}.html").write_text(
@@ -206,17 +227,26 @@ def main():
                                      for cid, nm in pl)
                          if pl else '<span class="non">미편성</span>')
                 stg = STG[u["stg"]] + (f' ({u["todo"]})' if u["todo"] else "")
-                lv = esc(u["lv"]) if u["lv"] else NON
+                lv = esc(lvl[uc]) if lvl[uc] else NON
                 hr = esc(f'{u["hr"]}h') if u["hr"] else NON
                 pdf = "있음" if u["has"]["pdf"] else NON
                 cls = ' class="wip"' if u["stg"] >= 1 else ""
+                # 서비스중단·숨김은 NCS 가 더는 쓰지 말라는 뜻이라 이름 옆에 붙인다
+                r0 = ncs.get(uc) or {}
+                flag = ""
+                if r0.get("서비스중단") == "Y":
+                    flag = ' <b class="flag">서비스중단</b>'
+                elif r0.get("숨김") == "Y":
+                    flag = ' <b class="flag">숨김</b>'
                 rows.append(
-                    f'<tr><td class="nm">{esc(u["n"])}</td><td>{esc(uc)}</td>'
+                    f'<tr><td class="nm">{esc(u["n"])}{flag}</td><td>{esc(uc)}</td>'
                     f'<td>{lv}</td><td>{hr}</td><td>{pdf}</td>'
                     f'<td{cls}>{esc(stg)}</td><td class="nm">{pl_td}</td></tr>')
 
             n_pl = sum(1 for c in sv["units"] if c in placed)
             n_pdf = sum(units[c]["has"]["pdf"] for c in sv["units"])
+            dist = Counter(lvl[c] for c in sv["units"] if lvl[c])
+            lv_txt = " · ".join(f"수준 {k} {n}개" for k, n in sorted(dist.items()))
             crumb = (f'커리큘럼 / <a href="{dom}.html">{esc(dv["label"])}</a> / '
                      f'{esc(sv["name"])}')
             (OUT / f"{dom}-{code}.html").write_text(
@@ -227,7 +257,9 @@ def main():
 {esc(t.get("소분류", ""))} &gt; {esc(sv["name"])} · <code>{esc(code)}</code> ·
 {esc(t.get("개정차수", ""))}차 개정</p>
 
-<div class="note"><b>읽는 법</b> — <b>학습모듈</b>은 한국직업능력연구원 PDF 확보 여부,
+<div class="note"><b>읽는 법</b> — <b>수준</b>은 NCS 가 정한 능력단위 수준(1~8)이고
+ncs.go.kr 원본 값입니다. <b>시간</b>은 우리가 과정에 편성한 훈련시간이라
+편성 전에는 비어 있습니다. <b>학습모듈</b>은 한국직업능력연구원 PDF 확보 여부,
 <b>교안</b>은 우리가 쓴 표준 강의 교안이 어느 단계인지입니다
 (골격 → 작성중 → 완성 → 검수. 괄호 안은 아직 못 채운 칸 수).
 <b>편성</b>이 <b>미편성</b>이면 아직 어느 훈련과정에도 넣지 않은 능력단위입니다.</div>
@@ -238,7 +270,7 @@ def main():
 <tbody>{"".join(rows)}</tbody>
 </table></div>
 <p class="tot">능력단위 {len(sv["units"])}개 · 학습모듈 {n_pdf}건 ·
-편성 {n_pl}개 · 미편성 {len(sv["units"]) - n_pl}개</p>
+편성 {n_pl}개 · 미편성 {len(sv["units"]) - n_pl}개<br>{esc(lv_txt)}</p>
 
 <p class="bar">
   <a href="{dom}.html">← {esc(dv["label"])} 커리큘럼으로</a>
