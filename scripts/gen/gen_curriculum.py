@@ -172,9 +172,12 @@ def main():
             elif m["id"] in guides:
                 mat[code] = (f"../guides/{m['id']}.html", "준비 교안")
 
-    # 과정이 쓰는 교안이 없는 능력단위에만 학습모듈로 만든 교안을 붙인다.
-    # 손으로 쓴 교안이 있으면 그것이 먼저다 — 자동 생성물보다 낫다.
+    # 학습모듈로 만든 학습 가이드. 과정의 준비 교안과 성격이 다르다 —
+    # 준비 교안은 그 과정의 평가를 준비하는 문서고, 학습 가이드는 능력단위를
+    # 개념부터 실습까지 익히는 문서다. 둘 다 있으면 둘 다 건다.
+    lmg = {}
     for g in sorted((SITE / "guides").glob("lm-*.html")):
+        lmg[g.stem[3:]] = f"../guides/{g.name}"
         mat.setdefault(g.stem[3:], (f"../guides/{g.name}", "학습 가이드"))
 
     # 편성됐는데 재고에 없는 능력단위 — 매핑이 현실을 못 따라간 자리다.
@@ -262,8 +265,11 @@ def main():
                 # 밑에 붙는 작은 글씨는 표준 강의 교안(6시트)이 어느 단계인지다.
                 href, kind = mat.get(uc, ("../docs/표준강의교안-샘플.html", ""))
                 sub = f"{kind} · {stg}" if kind else stg
-                lp_td = (f'<a class="btn" href="{esc(href)}">{"확인" if kind else "양식"}</a>'
-                         f'<span class="stg">{esc(sub)}</span>')
+                btns = f'<a class="btn" href="{esc(href)}">{"확인" if kind else "양식"}</a>'
+                # 준비 교안이 주 단추를 차지했으면 학습 가이드를 옆에 따로 건다
+                if uc in lmg and lmg[uc] != href:
+                    btns += f' <a class="btn" href="{esc(lmg[uc])}">학습</a>'
+                lp_td = btns + f'<span class="stg">{esc(sub)}</span>' 
                 cls = ' class="wip"' if u["stg"] >= 1 else ""
                 # 서비스중단·숨김은 NCS 가 더는 쓰지 말라는 뜻이라 이름 옆에 붙인다
                 r0 = ncs.get(uc) or {}
