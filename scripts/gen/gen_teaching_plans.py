@@ -165,7 +165,7 @@ def md(seq, unit, lm, hours, lv, src_note):
     # ④ 차시별지도안
     plans, s_no = [], 0
     for e, a in zip(elems, alloc):
-        topics = [t for c in e["contents"] for t in c["topics"]]
+        topics = [t["t"] for c in e["contents"] for t in c["topics"]]
         if not topics:
             topics = [c["title"] for c in e["contents"]]
         for k, chunk in enumerate(spread(topics, a)):

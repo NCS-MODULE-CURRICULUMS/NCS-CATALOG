@@ -186,15 +186,15 @@ def overview(texts, after):
             ELEM_CD.findall(t))
 
 
-def topics(texts, a, b):
+def topics(texts, a, b, printed_of):
     """'필요 지식' 과 '수행 내용' 사이의 제목만 — 차시 소재로 쓴다.
     그 뒤(수행 내용)는 번호 붙은 절차 문장이라 제목이 아니다."""
     lines = []
     for i in range(a, min(b, len(texts))):
-        lines += [ln.rstrip() for ln in texts[i].splitlines()]
-    out = []
+        lines += [(ln.rstrip(), i) for ln in texts[i].splitlines()]
+    out, seen = [], set()
     inside = False
-    for ln in lines:
+    for ln, pg in lines:
         c = clean(ln)
         if c == "필요 지식":
             inside = True
@@ -207,14 +207,16 @@ def topics(texts, a, b):
         # 기호 글머리(심볼 폰트)로 시작하는 큰 제목
         head = SYMBOL.sub("", c)
         if head != c and 4 < len(head) < 60:
-            if head not in out:
-                out.append(head)
+            if head not in seen:
+                seen.add(head)
+                out.append({"t": head, "p": printed_of(pg)})
             continue
         m = TOPIC.match(c)
         if m:
             t = clean(m.group(2))
-            if 3 < len(t) < 60 and not t[0].isdigit() and t not in out:
-                out.append(t)
+            if 3 < len(t) < 60 and not t[0].isdigit() and t not in seen:
+                seen.add(t)
+                out.append({"t": t, "p": printed_of(pg)})
     return out
 
 
@@ -257,6 +259,15 @@ def extract(pdf: Path, code: str, name: str):
     def pdfpage(printed):
         return pm.get(printed)
 
+    inv = {v: k for k, v in sorted(pm.items())}
+
+    def printed_of(i):
+        """PDF 쪽 인덱스 -> 인쇄된 쪽번호. 그 쪽에 번호가 없으면 앞쪽 것을 쓴다."""
+        for k in range(i, -1, -1):
+            if k in inv:
+                return inv[k]
+        return None
+
     elements, cur = [], None
     for it in items:
         if it["kind"] == "learn":
@@ -284,7 +295,7 @@ def extract(pdf: Path, code: str, name: str):
         nxt = flat[n + 1][1]["printed"] if n + 1 < len(flat) else None
         b = pdfpage(nxt) if nxt else (pdfpage(e.get("_evalpage")) or a + 12)
         c["goals"] = join_bullets(section(texts[a], "학습 목표", "필요 지식"))
-        c["topics"] = topics(texts, a, b or a + 12)
+        c["topics"] = topics(texts, a, b or a + 12, printed_of)
 
     starts = [pdfpage(e["contents"][0]["printed"]) for e in elements if e["contents"]]
     for n, e in enumerate(elements):
@@ -293,7 +304,9 @@ def extract(pdf: Path, code: str, name: str):
         e["eval"] = (eval_of(texts, p, nxt) if p is not None
                      else {"methods": [], "feedback": []})
 
-    out = {"code": code, "name": name, "pages": len(texts), "src": pdf.name}
+    # 인쇄 1쪽이 PDF 몇 번째 쪽인가 — 준비 교안이 원문 쪽을 바로 열 때 쓴다
+    out = {"code": code, "name": name, "pages": len(texts), "src": pdf.name,
+           "front": (pdfpage(1) or 0) + 1 - 1}
     out.update(ov)
     out["elements"] = elements
     return out, None

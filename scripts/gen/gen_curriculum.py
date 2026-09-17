@@ -157,6 +157,10 @@ def main():
     # 같이, 그 능력단위로 실제 수업에 쓰는 교안이 사이트 어디에 있는지도 모은다.
     # 과정마다 교안의 모양이 다르다 — c1 은 표준 강의 교안(6시트), c2 는 준비 교안.
     placed, mat = {}, {}
+    # 학습모듈 원문으로 만든 준비 교안이 있으면 그것을 먼저 쓴다 — 이 표는 과정이
+    # 아니라 능력단위를 보는 자리라, 능력단위마다 있는 교안이 더 맞다.
+    for g in sorted((SITE / "guides").glob("lm-*.html")):
+        mat[g.stem[3:]] = (f"../guides/{g.name}", "준비 교안")
     for c in (jsvar("courses.js", "CM_COURSES") or []):
         cid = c["id"]
         guides = jsvar(f"items-{cid}.js", "CM_GUIDES") or {}
@@ -166,7 +170,7 @@ def main():
                 continue
             placed.setdefault(code, []).append((cid, c["name"]))
             if code in mat:
-                continue                    # 먼저 나온 과정의 교안을 쓴다
+                continue                    # 학습모듈 교안이나 앞 과정의 교안이 이미 있다
             if m.get("lp"):
                 mat[code] = ("../" + m["lp"], "표준 교안")
             elif m["id"] in guides:
