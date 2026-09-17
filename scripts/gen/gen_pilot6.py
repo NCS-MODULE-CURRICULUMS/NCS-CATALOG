@@ -19,6 +19,10 @@ spec = importlib.util.spec_from_file_location("ncs", Path(__file__).parent / "nc
 ncs = importlib.util.module_from_spec(spec); spec.loader.exec_module(ncs)
 UNITS = ncs.UNITS
 
+_ls = importlib.util.spec_from_file_location("ls", Path(__file__).parent / "lessons_20010707.py")
+_lm = importlib.util.module_from_spec(_ls); _ls.loader.exec_module(_lm)
+LESSONS = _lm.LESSONS
+
 # 과정 공통 (①교과개요 · ⑥훈련생안내에 쓰인다)
 COURSE = {
     "name": "생성형 AI 엔지니어 양성과정",
@@ -99,12 +103,15 @@ def sessions(hr):
     return hr // 2
 
 
-def md(no, u):
-    p = PLAN[no]
-    n_ses = sessions(p["hr"])
+def allocate(no, u):
+    """요소별 차시 배분 — 수행준거 개수 비례(최대잉여법).
+
+    합이 정확히 총 차시가 되게 한다. 차시를 먼저 나누고 시간을 2배로 내야
+    ②NCS매핑과 ③주차별계획의 합계가 어긋나지 않는다.
+    마크다운 교안과 사이트용 HTML 교안이 같은 값을 쓰도록 여기 한 곳에 둔다.
+    """
+    n_ses = sessions(PLAN[no]["hr"])
     elems = u["elems"]
-    # 요소별 차시 배분 — 수행준거 개수 비례(최대잉여법). 합이 정확히 n_ses 가 되게 한다.
-    # 차시를 먼저 나누고 시간을 2배로 내야 ②③의 합계가 어긋나지 않는다.
     weights = [len(e[2]) for e in elems]
     tot_w = sum(weights)
     quota = [n_ses * w / tot_w for w in weights]
@@ -120,7 +127,13 @@ def md(no, u):
             alloc[j] -= 1; rest += 1
         else:
             break
-    hours = [a * 2 for a in alloc]
+    return n_ses, alloc, [a * 2 for a in alloc]
+
+
+def md(no, u):
+    p = PLAN[no]
+    elems = u["elems"]
+    n_ses, alloc, hours = allocate(no, u)
 
     # ② NCS매핑
     ncs_rows, ses_cursor = [], 1
@@ -152,10 +165,27 @@ def md(no, u):
                 f"{'본평가' if ev else ''} | `{u['code']}.{eno}` |")
             cur += 1
 
-    # ④ 차시별지도안 — 1차시분 서식 + 나머지는 표로
-    stage_rows = "\n".join(
-        f"| {cur_stage} | {mins} | (교수 · 학습 활동) | (교수자료) | |"
-        for cur_stage, mins in STAGE)
+    # ④ 차시별지도안 — 작성분이 있으면 그대로, 없으면 서식만
+    HEAD = ('| 단계 | 시간(분) | 교수 · 학습 활동 (강사 ↔ 훈련생) | 교수자료 · 도구 | 평가 · 과제 |'
+            '\n|---|---|---|---|---|\n')
+    les = LESSONS.get(no)
+    if les:
+        blocks = []
+        for L in les:
+            rows = "\n".join(
+                f"| {st} | {mi} | {act} | {mat} | {ev} |"
+                for st, mi, act, mat, ev in L["stages"])
+            tot = sum(x[1] for x in L["stages"])
+            blocks.append(
+                f"### {L['no']}차시 — {L['topic']}\n\n"
+                f"**학습목표** {L['goal']}\n"
+                f"**연계 수행준거** {L['crit']}\n\n"
+                + HEAD + rows + f"\n| **소계** | **{tot}** | | | |")
+        stage_rows = "\n\n".join(blocks)
+    else:
+        stage_rows = (HEAD + "\n".join(
+            f"| {st} | {mi} | (교수 · 학습 활동) | (교수자료) | |" for st, mi in STAGE)
+            + "\n| 소계 | 120 | | | |")
 
     # ⑤ 평가계획
     ev_rows = "\n".join(
@@ -253,14 +283,7 @@ updated: {TODAY}
 차시마다 아래 표를 채운다. 1차시 = 120분 = 도입 15 + 전개 90 + 정리 15.
 **실제 수업에서 무엇을 어떻게 했는지**가 드러나야 한다 — 현장 모니터링에서 훈련일지 · 출석부와 대조된다.
 
-### N차시 — (학습주제) / (학습목표)
-
-| 단계 | 시간(분) | 교수 · 학습 활동 (강사 ↔ 훈련생) | 교수자료 · 도구 | 평가 · 과제 |
-|---|---|---|---|---|
 {stage_rows}
-| 소계 | 120 | | | |
-
-→ 차시별 작성분은 `lesson-plans/` 에 둔다.
 
 ---
 

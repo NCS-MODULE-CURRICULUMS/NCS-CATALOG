@@ -3,9 +3,9 @@
 c2 능력단위 상세 페이지 — 카드 UI 로 재생성.
 
 섹션
-  1. 평가 자료      포트폴리오 제출서 · 채점판 · 평가도구 · 샘플 문제지 (exam/)
-  2. 준비 교안      guides/mNN.html (17개)
-  3. 표준 강의 교안  「파이썬_표준강의교안_샘플.xlsx」의 6개 시트 구성
+  평가 자료(exam/)만 카드로 보인다.
+  준비 교안은 목록 표에 제 버튼이 있고, 표준 강의 교안 양식은 모든 모듈이 같은 내용이라
+  둘 다 하단 단추로만 연결한다 — 같은 것을 두 번 늘어놓지 않는다.
 
 카드 마크업은 원본 site.css 의 .cards / .card / .card .d / .card dl / .card .go 를 그대로 쓴다.
 """
@@ -107,19 +107,14 @@ def page(m):
 </div>
 {overview}
 
-<h2 class="sub2">평가 자료</h2>
+<h2 class="sub2" id="exam">평가 자료</h2>
 <div class="cards" id="examCards"></div>
 
-<h2 class="sub2">준비 교안</h2>
-<div class="cards" id="guideCards"></div>
-
-<h2 class="sub2">표준 강의 교안 <span id="lpSrc"></span></h2>
-<p class="memo">교과목 운영계획서 6개 시트. 심사·인증 증빙과 훈련생 배포에 그대로 쓰는 양식입니다.
-아래 카드의 항목을 이 교과에 맞게 채우면 됩니다.</p>
-<div class="cards" id="lpCards"></div>
-<div class="note"><b>작성 원칙</b><ul id="lpRules" style="margin:8px 0 0 18px;padding:0;font-size:12.5px;line-height:1.8"></ul></div>
-
-<p style="margin-top:20px"><a class="btn" href="../courses/{COURSE['id']}.html">← 능력단위 모듈 목록으로</a></p>
+<p style="margin-top:22px" id="go">
+  <a class="btn" href="../courses/{COURSE['id']}.html">← 능력단위 모듈 목록으로</a>
+  <a class="btn" id="bGuide" href="../guides/{m['id']}.html">준비 교안</a>
+  <a class="btn" id="bLp" href="../docs/표준강의교안-샘플.html">표준 강의 교안 양식</a>
+</p>
 <footer>{esc(COURSE['name'])} · {esc(COURSE['period'])} · 담당 {esc(COURSE['tc'])}</footer>
 </div>
 
@@ -154,28 +149,12 @@ def page(m):
       }}).join('')
     : '<div class="empty">평가 자료가 아직 등록되지 않았습니다.</div>';
 
-  /* 2. 준비 교안 */
-  var g = (window.CM_GUIDES || {{}})[MID];
-  document.getElementById('guideCards').innerHTML = g
-    ? card(esc(g) + ' 준비 교안',
-        '평가를 처음 준비한다면 여기부터. 알아야 할 개념과 실습 순서를 난이도 4레벨로 정리했습니다.',
-        [['형태', '단계별 지도안 (도입 → 전개 → 정리)'], ['난이도', '4레벨 구성']],
-        '<a class="btn" href="../guides/' + MID + '.html">준비 교안 열기</a>')
-    : '<div class="empty">준비 교안이 없습니다.</div>';
-
-  /* 3. 표준 강의 교안 6개 시트 */
-  var LP = window.CM_LESSON_PLAN || {{sheets:[], rules:[]}};
-  document.getElementById('lpSrc').textContent = LP.src || '';
-  document.getElementById('lpCards').innerHTML = LP.sheets.map(function(s, i){{
-    var tags = (s.simsa ? '<span class="tag">심사 증빙</span>' : '') +
-               (s.student ? '<span class="tag">훈련생 배포</span>' : '');
-    return card(esc(s.no + ' ' + s.name) + tags, s.what,
-      [['핵심 항목', s.keys.join(' / ')], ['작성 주체', s.who]],
-      '<a class="btn" href="' + LP.view + '#s' + (i + 1) + '">양식 보기</a>' +
-      '<a class="btn" href="' + LP.file + '" download>xlsx</a>');
-  }}).join('');
-  document.getElementById('lpRules').innerHTML =
-    (LP.rules || []).map(function(r){{ return '<li>' + esc(r) + '</li>'; }}).join('');
+  /* 준비 교안은 목록 표에 제 버튼이 있고, 표준 강의 교안 양식은 모든 모듈이 같다.
+     여기서 카드로 또 늘어놓으면 같은 것을 두 번 보여 주는 셈이라 아래 단추로만 둔다. */
+  if(!(window.CM_GUIDES || {{}})[MID]){{
+    var bg = document.getElementById('bGuide');
+    if(bg) bg.parentNode.removeChild(bg);
+  }}
 }})();
 </script>
 """

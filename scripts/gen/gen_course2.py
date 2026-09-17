@@ -95,6 +95,7 @@ def build_modules():
             "tc": tc, "sd": sd, "ed": ed, "ev": ev, "ab": ab, "re": re_,
             "pre": pre, "sc": sc,
             "page": f"modules/{COURSE['id']}-{mid}.html",
+            "lp": "",
         })
     return mods
 

@@ -86,6 +86,7 @@ def write_modules():
             "sd": sd, "ed": ed, "ev": ev, "ab": "-", "re": "-",
             "ev_method": " · ".join(u["ev"]),
             "page": f"modules/c1-m{u['no']}.html",
+            "lp": "",
         })
     body = js_header("과정의 능력단위 모듈 목록.", "courses/c1.html") + [
         " *",
@@ -93,7 +94,8 @@ def write_modules():
         " *   lv   : NCS 수준           hr   : 편성 훈련시간",
         " *   tc   : 강사               sd/ed: 시작일 / 종료일",
         " *   ev   : 본평가   ab : 결석자평가   re : 재평가",
-        " *   ev_method : 평가방법      page : 상세 페이지",
+        " *   ev_method : 평가방법      page : 상세 페이지
+ *   lp   : 표준 강의 교안 경로. 비우면 양식 보기로 갑니다",
         " */",
         "window.CM_MODULES = " + json.dumps(mods, ensure_ascii=False, indent=2) + ";",
         "",
