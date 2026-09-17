@@ -186,15 +186,65 @@ def overview(texts, after):
             ELEM_CD.findall(t))
 
 
+def gist(lines, limit=220):
+    """제목 아래 본문의 첫 한두 문장. 원문 인용이라 손대지 않고 자르기만 한다."""
+    body = ""
+    for ln in lines:
+        c = clean(ln)
+        if not c or TOPIC.match(c) or SYMBOL.match(c):
+            continue
+        if c.startswith(("[그림", "[표", "출처", "<", "(출처")):
+            continue
+        if re.match(r"^\(\d+\)", c):       # (1) 무엇의 정의 — 소제목이지 본문이 아니다
+            continue
+        if len(c) < 6:
+            continue
+        body = mend(body, c) if body else c
+        if len(body) > limit:
+            break
+    if not body:
+        return ""
+    out = ""
+    for part in re.split(r"(?<=다\.)\s+", body):
+        if out and len(out) + len(part) > limit:
+            break
+        out = (out + " " + part).strip()
+        if len(out) >= 60:
+            break
+    return out[:limit].rstrip()
+
+
+# 제목의 말투로 성격을 나눈다. 준비 교안의 안내가 항목마다 달라지도록.
+KINDS = [
+    ("개념", ("정의", "개요", "목적", "개념", "의의", "특징")),
+    ("절차", ("절차", "단계", "방법", "기법", "프로세스", "수행", "작성", "구현", "설계")),
+    ("도구", ("구성도", "도구", "유형", "종류", "형식", "표기", "언어", "도표", "모델")),
+    ("판단", ("고려", "기준", "검토", "산정", "평가", "선정", "타당", "적정")),  # "분석" 은 "분석모델" 처럼 이름의 일부라 뺀다
+]
+
+
+def kind_of(title):
+    """제목에 든 낱말 수로 정한다. 첫 일치로 정하면 '분석모델의 타당성 분석' 이
+    '모델' 때문에 도구가 되어 버린다. 동점이면 아래 순서가 이긴다."""
+    order = ["판단", "절차", "도구", "개념"]
+    best, hit = "내용", 0
+    for k in order:
+        words = dict(KINDS)[k]
+        n = sum(1 for w in words if w in title)
+        if n > hit:
+            best, hit = k, n
+    return best
+
+
 def topics(texts, a, b, printed_of):
-    """'필요 지식' 과 '수행 내용' 사이의 제목만 — 차시 소재로 쓴다.
+    """'필요 지식' 과 '수행 내용' 사이의 제목과 그 아래 요지 — 차시 소재로 쓴다.
     그 뒤(수행 내용)는 번호 붙은 절차 문장이라 제목이 아니다."""
     lines = []
     for i in range(a, min(b, len(texts))):
         lines += [(ln.rstrip(), i) for ln in texts[i].splitlines()]
-    out, seen = [], set()
-    inside = False
-    for ln, pg in lines:
+
+    heads, inside = [], False
+    for idx, (ln, pg) in enumerate(lines):
         c = clean(ln)
         if c == "필요 지식":
             inside = True
@@ -204,19 +254,25 @@ def topics(texts, a, b, printed_of):
             continue
         if not inside or not c:
             continue
-        # 기호 글머리(심볼 폰트)로 시작하는 큰 제목
         head = SYMBOL.sub("", c)
         if head != c and 4 < len(head) < 60:
-            if head not in seen:
-                seen.add(head)
-                out.append({"t": head, "p": printed_of(pg)})
+            heads.append((head, pg, idx))
             continue
         m = TOPIC.match(c)
         if m:
             t = clean(m.group(2))
-            if 3 < len(t) < 60 and not t[0].isdigit() and t not in seen:
-                seen.add(t)
-                out.append({"t": t, "p": printed_of(pg)})
+            if 3 < len(t) < 60 and not t[0].isdigit():
+                heads.append((t, pg, idx))
+
+    out, seen = [], set()
+    for n, (title, pg, idx) in enumerate(heads):
+        if title in seen:
+            continue
+        seen.add(title)
+        end = heads[n + 1][2] if n + 1 < len(heads) else len(lines)
+        out.append({"t": title, "p": printed_of(pg),
+                    "k": kind_of(title),
+                    "s": gist([x for x, _ in lines[idx + 1:end]])})
     return out
 
 

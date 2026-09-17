@@ -33,6 +33,16 @@ def esc(s):
     return html.escape("" if s is None else str(s), quote=True)
 
 
+CSS = """<style>
+  /* 원문 인용 — 우리가 쓴 안내와 눈으로 구분되어야 한다 */
+  .bd blockquote{margin:10px 0 16px;padding:10px 14px;border-left:3px solid #000;
+                 background:#fafafa;font-size:13.5px;line-height:1.8;color:#222}
+  .bd p.none{color:#888;font-size:13px}
+  .bd ul.sub{margin:8px 0 16px;padding-left:20px;font-size:13.5px;line-height:1.9}
+  aside.side .v .btn{font-size:11.5px}
+</style>"""
+
+
 SPY = """<script>
 /* 빠른 이동 — 지금 보는 단계를 표시하고, 좁은 화면에서는 여닫습니다. */
 (function () {
@@ -57,43 +67,81 @@ SPY = """<script>
 </script>
 """
 
-# 단계마다 붙는 '할 일'. 원문에 없는 말이므로 우리 문장으로 쓰고, 돌려쓴다.
-TODO = [
-    "이 항목을 슬라이드 한 장으로 줄여 보십시오. 한 장에 안 들어가면 아직 정리가 덜 된 것입니다.",
-    "훈련생에게 던질 질문을 두 개 적어 두십시오. 답이 «예/아니오» 로 끝나지 않는 것으로.",
-    "현장에서 쓰는 실제 사례를 하나 준비하십시오. 교재의 예시만으로는 잘 와닿지 않습니다.",
-    "이 항목에서 훈련생이 가장 자주 틀리는 지점을 미리 적어 두고, 그 자리에서 한 번 멈추십시오.",
-    "칠판에 그릴 그림을 미리 한 번 그려 보십시오. 즉석에서 그리면 순서가 엉킵니다.",
-    "앞 단계와 어떻게 이어지는지 한 문장으로 말할 수 있어야 합니다. 그 문장을 적어 두십시오.",
-]
+# 항목 성격에 따라 다른 안내를 붙인다. 원문에 없는 말이므로 우리 문장으로 쓴다.
+#   원문에서 볼 곳 / 준비 / 확인 — 셋 다 성격마다 다르다.
+BY_KIND = {
+    "개념": (
+        "정의 문장을 그대로 읽어 주지 마십시오. 한 번 읽고 덮은 다음, "
+        "자기 말로 다시 말할 수 있는지 스스로 확인하고 들어가십시오.",
+        "이 말을 처음 듣는 사람에게 30초 안에 설명한다면 무엇부터 말하겠습니까. "
+        "그 한 문장을 적어 두십시오.",
+        "훈련생이 정의를 외워 말하는지, 자기 말로 바꿔 말하는지 구분해서 들으십시오. "
+        "외운 것은 다음 주에 사라집니다."),
+    "절차": (
+        "단계의 개수와 순서를 먼저 잡으십시오. 순서가 왜 그 순서인지 말할 수 있어야 합니다.",
+        "칠판에 그릴 흐름도를 미리 한 번 그려 보십시오. "
+        "즉석에서 그리면 화살표가 엉킵니다.",
+        "훈련생에게 단계를 순서 없이 늘어놓고 다시 배열하게 해 보십시오. "
+        "순서를 못 맞추면 아직 절차를 모르는 것입니다."),
+    "도구": (
+        "실물을 준비하십시오. 화면 캡처든 예시 문서든, 눈으로 볼 것이 있어야 합니다.",
+        "현장에서 실제로 쓰는 것 하나를 골라 두십시오. "
+        "교재의 예시만으로는 잘 와닿지 않습니다.",
+        "훈련생이 그것을 직접 열어 보고 어디가 무엇인지 짚을 수 있으면 넘어갑니다."),
+    "판단": (
+        "여기는 «무엇인가» 가 아니라 «어느 쪽을 고를 것인가» 입니다. "
+        "판단 기준이 몇 개인지부터 세어 두십시오.",
+        "고르기 어려운 상황을 하나 만들어 두십시오. "
+        "기준이 서로 부딪치는 사례라야 판단을 연습할 수 있습니다.",
+        "훈련생이 «상황이 이러면 이쪽» 이라고 근거를 대며 고르면 넘어갑니다. "
+        "근거 없이 고르면 아직 기준이 안 선 것입니다."),
+    "내용": (
+        "이 항목이 앞뒤 항목과 어떻게 이어지는지 한 문장으로 말할 수 있어야 합니다.",
+        "슬라이드 한 장으로 줄여 보십시오. 한 장에 안 들어가면 아직 정리가 덜 된 것입니다.",
+        "훈련생이 이 항목을 자기 말로 설명할 수 있으면 넘어갑니다."),
+}
 
 
-def step_html(n, t, content, goals, methods, pdf_code, front):
-    """단계 하나. aside 는 길잡이, bd 는 할 일."""
+def step_html(n, t, content, methods, pdf_code, front, below=()):
+    """단계 하나. 왼쪽은 길잡이, 오른쪽은 원문 요지와 할 일."""
     pg = t.get("p")
     # 화면에는 인쇄된 쪽번호를, 뷰어에는 표지·차례만큼 민 실제 PDF 쪽을 준다
     src = (f'<a class="btn" href="#" data-pdf="{esc(pdf_code)}" '
            f'data-page="{pg + front}">원문 {pg}쪽</a>'
            if pg else '<span class="non">—</span>')
-    goal = goals[0] if goals else ""
+    kind = t.get("k", "내용")
+    look, prep, check = BY_KIND.get(kind, BY_KIND["내용"])
+    gist = t.get("s") or ""
+    if gist:
+        gist_html = f'<h4>원문 요지</h4>\n<blockquote>{esc(gist)}</blockquote>\n'
+    elif below:
+        # 본문 없이 곧장 하위 항목으로 갈라지는 제목이다. 무엇으로 갈라지는지 보여 준다.
+        gist_html = ('<h4>이 아래로 나뉩니다</h4>\n<ul class="sub">'
+                     + "".join(f'<li>{esc(x)}</li>' for x in below) + '</ul>\n')
+    else:
+        gist_html = ('<h4>원문 요지</h4>\n<p class="none">이 제목 아래는 원문에서 '
+                     '그림이나 표로 이어집니다. 원문 쪽을 펼쳐 보십시오.</p>\n')
     return f"""
     <div class="step" id="st{n}">
       <h3><i>{n}</i>{esc(t["t"])}</h3>
       <aside class="side">
         <p class="pt">{esc(content)}</p>
+        <b class="sh">성격</b>
+        <p class="v">{esc(kind)}</p>
         <b class="sh">원문</b>
         <p class="v">{src}</p>
         <b class="sh">평가</b>
         <p class="src">{esc(" · ".join(methods) or "—")}</p>
       </aside>
       <div class="bd">
-{f'<h4>이 단계가 향하는 곳</h4>{chr(10)}<p>{esc(goal)}</p>' if goal else ''}
+{gist_html}
+<h4>읽는 법</h4>
+<p>{esc(look)}</p>
 <h4>준비</h4>
-<p>{esc(TODO[n % len(TODO)])}</p>
+<p>{esc(prep)}</p>
 <div class="try">
   <b class="t">확인</b>
-  훈련생이 <b>{esc(t["t"])}</b> 를 자기 말로 설명할 수 있으면 넘어갑니다.
-  못 하면 원문 {pg or "해당"}쪽을 함께 읽고 한 번 더 묻습니다.
+  {esc(check)}
 </div>
       </div>
     </div>
@@ -107,19 +155,22 @@ def page(unit, lm, lv, hours):
         nav.append(f'<i class="qg">{esc(e["name"])}</i>')
         steps = []
         for c in e["contents"]:
-            for t in c["topics"]:
+            for k, t in enumerate(c["topics"]):
                 n += 1
                 nav.append(f'<a href="#st{n}"><b>{n}</b>'
                            f'<span>{esc(t["t"])}</span></a>')
-                steps.append(step_html(n, t, c["title"], c["goals"],
+                below = [x["t"] for x in c["topics"][k + 1:k + 5]] if not t.get("s") else []
+                steps.append(step_html(n, t, c["title"],
                                        e["eval"]["methods"], unit["code"],
-                                       lm.get("front", 0)))
+                                       lm.get("front", 0), below))
             if not c["topics"]:
                 n += 1
                 nav.append(f'<a href="#st{n}"><b>{n}</b>'
                            f'<span>{esc(c["title"])}</span></a>')
-                steps.append(step_html(n, {"t": c["title"], "p": c["printed"]},
-                                       c["title"], c["goals"],
+                steps.append(step_html(n, {"t": c["title"], "p": c["printed"],
+                                           "k": "내용",
+                                           "s": " / ".join(c["goals"])},
+                                       c["title"],
                                        e["eval"]["methods"], unit["code"],
                                        lm.get("front", 0)))
         body.append(
@@ -138,6 +189,7 @@ def page(unit, lm, lv, hours):
     return f"""<meta charset="utf-8"><title>{esc(unit["name"])} — 준비 교안</title>
 <link rel="stylesheet" href="../assets/site.css">
 <link rel="stylesheet" href="../assets/guide.css">
+{CSS}
 <script src="../assets/auth.js"></script>
 <script>EXAM_AUTH.guard("../");</script>
 <script>window.CM_BASE="../";</script>
