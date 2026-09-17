@@ -8,7 +8,7 @@ c1 과 c2 를 손으로 각각 고치다 보니 칸 구성이 갈라졌다.
 이 스크립트를 돌리면 끝이다.
 
 칸 구성 (모든 과정 동일)
-  능력단위 | 코드 | 강사 | 시작일 | 종료일 | 본평가 | 준비 교안 | 평가 자료 | 표준 교안
+  능력단위 | 코드 | 강사 | 시작일 | 종료일 | 본평가 | 가이드 | 평가 자료 | 표준 교안
 
   - 능력단위명 자체가 상세 링크다. 상세 단추를 따로 두지 않는다.
   - 수준 · 시간 · 평가방법 · 결석자평가 · 재평가는 표에서 뺐다.
@@ -188,7 +188,7 @@ TEMPLATE = """<meta charset="utf-8"><title>능력단위 모듈 목록</title>
     var v = list(), adm = EXAM_AUTH.isAdmin(), h = '';
     h += '<tr><th>능력단위</th><th>코드</th><th>강사</th>' +
          '<th>시작일</th><th>종료일</th><th>본평가</th>' +
-         '<th>준비 교안</th><th>평가 자료</th><th>표준 교안</th></tr>';
+         '<th>가이드</th><th>평가 자료</th><th>표준 교안</th></tr>';
 
     v.forEach(function(m, i){
       if(adm && i === editing){
@@ -211,16 +211,23 @@ TEMPLATE = """<meta charset="utf-8"><title>능력단위 모듈 목록</title>
       var nm = (pg && !shut)
         ? '<a class="mlink" href="../' + esc(pg) + '">' + esc(m.name) + '</a>'
         : '<span class="mlink d">' + esc(m.name) + '</span>';
-      // 준비 교안 — 파일이 하나뿐이라 바로 연다
+      // 가이드 — 준비 교안 한 장이라 바로 연다
       var hasG = !!(window.CM_GUIDES || {})[m.id];
       var gbtn = (hasG && !shut)
-        ? '<a class="btn" href="../guides/' + esc(m.id) + '.html">가이드</a>'
-        : (hasG ? '<a class="btn d">가이드</a>' : '<span class="non">—</span>');
+        ? '<a class="btn" href="../guides/' + esc(m.id) + '.html">확인</a>'
+        : (hasG ? '<a class="btn d">확인</a>' : '<span class="non">—</span>');
       // 평가 자료 — 여러 건이라 상세의 평가 자료 자리로 보낸다
       var nItem = ((window.CM_ITEMS || {})[m.id] || []).length;
       var ebtn = (nItem && pg && !shut)
         ? '<a class="btn" href="../' + esc(pg) + '">자료 ' + nItem + '</a>'
         : (nItem ? '<a class="btn d">자료 ' + nItem + '</a>' : '<span class="non">—</span>');
+      // 학습하기 — 가이드의 세부항목을 카드로 펼친 페이지
+      var nStep = (window.CM_STUDY || {})[m.id] || 0;
+      if(nStep){
+        ebtn += (!shut)
+          ? '<a class="btn" href="../study/' + CID + '-' + esc(m.id) + '.html">학습하기</a>'
+          : '<a class="btn d">학습하기</a>';
+      }
       // 표준 강의 교안 — 이 교과 것이 있으면 그리로, 없으면 양식을 보여 준다
       var lpbtn = (m.lp && !shut)
         ? '<a class="btn" href="../' + esc(m.lp) + '">교안</a>'
