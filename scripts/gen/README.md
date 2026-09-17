@@ -16,6 +16,7 @@
 | `gen_xlsx_view.py` | `docs/표준강의교안-샘플.html` (xlsx → 정적 HTML) |
 | `export_status.py` | `data/curriculum-status.json` — 비공개 교안의 **상태만** 공개 데이터로 |
 | `gen_curriculum.py` | `assets/curriculum.js` · `curriculum/*.html` 32장 |
+| `gen_pdf_index.py` | `assets/modules-pdf.js` — 학습모듈 PDF **색인**(원문 아님) |
 
 ## 커리큘럼 페이지
 

@@ -53,12 +53,18 @@ def jsvar(path, var):
         return json.loads(re.sub(r",(\s*[}\]])", lambda x: x.group(1), fixed))
 
 
-def head(title, up, crumb):
+def head(title, up, crumb, pdf=False):
     """모든 커리큘럼 페이지의 머리 — 로그인하지 않으면 아무것도 보이지 않는다."""
+    # 학습모듈 PDF 보기는 색인(modules-pdf.js)과 뷰어(pdfview.js)를 함께 싣는다.
+    # CM_BASE 는 뷰어가 assets/pdfjs/ 를 찾는 데 쓴다.
+    pv = (f'<script>window.CM_BASE="{up}";</script>\n'
+          f'<script src="{up}assets/modules-pdf.js"></script>\n'
+          f'<script defer src="{up}assets/pdfview.js"></script>\n') if pdf else ""
     return f"""<meta charset="utf-8"><title>{esc(title)}</title>
 <link rel="stylesheet" href="{up}assets/site.css">
 <script src="{up}assets/auth.js"></script>
 <script>EXAM_AUTH.guard("{up}");</script>
+{pv}
 <div class="top"><div class="tbar">
   <div class="brand"><a href="{up}index.html">과정관리</a><small>{crumb}</small></div>
   <div class="tuser" id="tUser"><b id="tName"></b><button id="tOut" type="button">로그아웃</button></div>
@@ -242,7 +248,9 @@ def main():
                 stg = STG[u["stg"]] + (f' ({u["todo"]})' if u["todo"] else "")
                 lv = esc(lvl[uc]) if lvl[uc] else NON
                 hr = esc(f'{u["hr"]}h') if u["hr"] else NON
-                pdf = "있음" if u["has"]["pdf"] else NON
+                # 학습모듈 — 원문은 이 저장소에 없다. 단추가 모달 뷰어를 연다.
+                pdf = (f'<a class="btn" href="#" data-pdf="{esc(uc)}">PDF</a>'
+                       if u["has"]["pdf"] else NON)
                 # 교안 칸 — 수업에 쓰는 교안이 있으면 그 화면으로, 없으면 양식으로.
                 # 밑에 붙는 작은 글씨는 표준 강의 교안(6시트)이 어느 단계인지다.
                 href, kind = mat.get(uc, ("../docs/표준강의교안-샘플.html", ""))
@@ -269,7 +277,7 @@ def main():
             crumb = (f'커리큘럼 / <a href="{dom}.html">{esc(dv["label"])}</a> / '
                      f'{esc(sv["name"])}')
             (OUT / f"{dom}-{code}.html").write_text(
-                head(f'{sv["name"]} — 능력단위', "../", crumb) + CSS +
+                head(f'{sv["name"]} — 능력단위', "../", crumb, pdf=True) + CSS +
                 f'''<div class="wrap">
 <h1>{esc(sv["name"])}</h1>
 <p class="sub">{esc(t.get("대분류", ""))} &gt; {esc(t.get("중분류", ""))} &gt;
@@ -278,7 +286,9 @@ def main():
 
 <div class="note"><b>읽는 법</b> — <b>수준</b>은 NCS 가 정한 능력단위 수준(1~8)이고
 ncs.go.kr 원본 값입니다. <b>시간</b>은 우리가 과정에 편성한 훈련시간이라
-편성 전에는 비어 있습니다. <b>학습모듈</b>은 한국직업능력연구원 PDF 확보 여부,
+편성 전에는 비어 있습니다. <b>학습모듈</b>의 <b>PDF</b> 는 한국직업능력연구원 원문을
+이 화면에서 바로 펼칩니다 — 원문은 저작권자 자료라 사이트에 올려 두지 않고,
+처음 한 번 PC 의 커리큘럼 폴더를 알려 주면 그 파일을 읽어 옵니다.
 <b>교안</b>의 <b>확인</b>은 그 능력단위를 실제로 쓰는 과정의 교안 화면으로 갑니다
 (과정에 따라 준비 교안이거나 표준 강의 교안입니다). 아직 어느 과정에도 없으면
 <b>양식</b>으로 가서 무엇을 채워야 하는지 볼 수 있습니다.
