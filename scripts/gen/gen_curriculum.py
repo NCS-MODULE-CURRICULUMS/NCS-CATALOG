@@ -79,6 +79,7 @@ CSS = """<style>
   .ccard:hover h3 small{color:#ccc}
   td.wip{font-weight:700}
   .flag{font-weight:700;border:1px solid #000;padding:0 5px;font-size:11px;margin-left:6px}
+  .stg{display:block;font-size:11px;color:#555;margin-top:5px;white-space:nowrap}
   .tot{font-size:12.5px;color:#555;margin:10px 0 0}
 </style>
 """
@@ -146,12 +147,24 @@ def main():
     for r in csv.DictReader(open(DATA / "competency-units.csv", encoding="utf-8-sig")):
         ncs[r["능력단위코드"]] = r
 
-    # 편성 역매핑 — 어느 능력단위가 어느 운영 과정에 들어갔나
-    placed = {}
+    # 편성 역매핑 — 어느 능력단위가 어느 운영 과정에 들어갔나.
+    # 같이, 그 능력단위로 실제 수업에 쓰는 교안이 사이트 어디에 있는지도 모은다.
+    # 과정마다 교안의 모양이 다르다 — c1 은 표준 강의 교안(6시트), c2 는 준비 교안.
+    placed, mat = {}, {}
     for c in (jsvar("courses.js", "CM_COURSES") or []):
-        for m in (jsvar(f"modules-{c['id']}.js", "CM_MODULES") or []):
-            if m.get("code"):
-                placed.setdefault(m["code"], []).append((c["id"], c["name"]))
+        cid = c["id"]
+        guides = jsvar(f"items-{cid}.js", "CM_GUIDES") or {}
+        for m in (jsvar(f"modules-{cid}.js", "CM_MODULES") or []):
+            code = m.get("code")
+            if not code:
+                continue
+            placed.setdefault(code, []).append((cid, c["name"]))
+            if code in mat:
+                continue                    # 먼저 나온 과정의 교안을 쓴다
+            if m.get("lp"):
+                mat[code] = ("../" + m["lp"], "표준 교안")
+            elif m["id"] in guides:
+                mat[code] = (f"../guides/{m['id']}.html", "준비 교안")
 
     # 편성됐는데 재고에 없는 능력단위 — 매핑이 현실을 못 따라간 자리다.
     # 숨기지 않고 그 세분류를 related 로 안고 있는 도메인 페이지에 띄운다.
@@ -230,6 +243,12 @@ def main():
                 lv = esc(lvl[uc]) if lvl[uc] else NON
                 hr = esc(f'{u["hr"]}h') if u["hr"] else NON
                 pdf = "있음" if u["has"]["pdf"] else NON
+                # 교안 칸 — 수업에 쓰는 교안이 있으면 그 화면으로, 없으면 양식으로.
+                # 밑에 붙는 작은 글씨는 표준 강의 교안(6시트)이 어느 단계인지다.
+                href, kind = mat.get(uc, ("../docs/표준강의교안-샘플.html", ""))
+                sub = f"{kind} · {stg}" if kind else stg
+                lp_td = (f'<a class="btn" href="{esc(href)}">{"확인" if kind else "양식"}</a>'
+                         f'<span class="stg">{esc(sub)}</span>')
                 cls = ' class="wip"' if u["stg"] >= 1 else ""
                 # 서비스중단·숨김은 NCS 가 더는 쓰지 말라는 뜻이라 이름 옆에 붙인다
                 r0 = ncs.get(uc) or {}
@@ -241,7 +260,7 @@ def main():
                 rows.append(
                     f'<tr><td class="nm">{esc(u["n"])}{flag}</td><td>{esc(uc)}</td>'
                     f'<td>{lv}</td><td>{hr}</td><td>{pdf}</td>'
-                    f'<td{cls}>{esc(stg)}</td><td class="nm">{pl_td}</td></tr>')
+                    f'<td{cls}>{lp_td}</td><td class="nm">{pl_td}</td></tr>')
 
             n_pl = sum(1 for c in sv["units"] if c in placed)
             n_pdf = sum(units[c]["has"]["pdf"] for c in sv["units"])
@@ -260,7 +279,10 @@ def main():
 <div class="note"><b>읽는 법</b> — <b>수준</b>은 NCS 가 정한 능력단위 수준(1~8)이고
 ncs.go.kr 원본 값입니다. <b>시간</b>은 우리가 과정에 편성한 훈련시간이라
 편성 전에는 비어 있습니다. <b>학습모듈</b>은 한국직업능력연구원 PDF 확보 여부,
-<b>교안</b>은 우리가 쓴 표준 강의 교안이 어느 단계인지입니다
+<b>교안</b>의 <b>확인</b>은 그 능력단위를 실제로 쓰는 과정의 교안 화면으로 갑니다
+(과정에 따라 준비 교안이거나 표준 강의 교안입니다). 아직 어느 과정에도 없으면
+<b>양식</b>으로 가서 무엇을 채워야 하는지 볼 수 있습니다.
+단추 밑의 작은 글씨는 표준 강의 교안 6시트가 어느 단계인지입니다
 (골격 → 작성중 → 완성 → 검수. 괄호 안은 아직 못 채운 칸 수).
 <b>편성</b>이 <b>미편성</b>이면 아직 어느 훈련과정에도 넣지 않은 능력단위입니다.</div>
 
