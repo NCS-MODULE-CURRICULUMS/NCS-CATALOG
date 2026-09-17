@@ -8,7 +8,7 @@ c1 과 c2 를 손으로 각각 고치다 보니 칸 구성이 갈라졌다.
 이 스크립트를 돌리면 끝이다.
 
 칸 구성 (모든 과정 동일)
-  능력단위 | 코드 | 강사 | 시작일 | 종료일 | 본평가 | 가이드 | 평가 자료 | 표준 교안
+  능력단위 | 코드 | 강사 | 시작일 | 종료일 | 본평가 | 가이드 | 학습하기 | 평가 자료 | 표준 교안
 
   - 능력단위명 자체가 상세 링크다. 상세 단추를 따로 두지 않는다.
   - 수준 · 시간 · 평가방법 · 결석자평가 · 재평가는 표에서 뺐다.
@@ -121,7 +121,7 @@ TEMPLATE = """<meta charset="utf-8"><title>능력단위 모듈 목록</title>
   var COLS = [['name','능력단위','text'],['code','능력단위코드','text'],['tc','강사','text'],
               ['sd','시작일','date'],['ed','종료일','date'],['ev','본평가','date'],
               ['page','상세','text'],['lp','표준 교안','text']];
-  var NCOL = 9;                         /* 표시 칸 수 */
+  var NCOL = 10;                        /* 표시 칸 수 */
   var editing = -1;
 
   var course = (window.CM_COURSES || []).filter(function(c){ return c.id === CID; })[0] || {};
@@ -188,7 +188,7 @@ TEMPLATE = """<meta charset="utf-8"><title>능력단위 모듈 목록</title>
     var v = list(), adm = EXAM_AUTH.isAdmin(), h = '';
     h += '<tr><th>능력단위</th><th>코드</th><th>강사</th>' +
          '<th>시작일</th><th>종료일</th><th>본평가</th>' +
-         '<th>가이드</th><th>평가 자료</th><th>표준 교안</th></tr>';
+         '<th>가이드</th><th>학습하기</th><th>평가 자료</th><th>표준 교안</th></tr>';
 
     v.forEach(function(m, i){
       if(adm && i === editing){
@@ -223,11 +223,10 @@ TEMPLATE = """<meta charset="utf-8"><title>능력단위 모듈 목록</title>
         : (nItem ? '<a class="btn d">자료 ' + nItem + '</a>' : '<span class="non">—</span>');
       // 학습하기 — 가이드의 세부항목을 카드로 펼친 페이지
       var nStep = (window.CM_STUDY || {})[m.id] || 0;
-      if(nStep){
-        ebtn += (!shut)
-          ? '<a class="btn" href="../study/' + CID + '-' + esc(m.id) + '.html">학습하기</a>'
-          : '<a class="btn d">학습하기</a>';
-      }
+      var sbtn = nStep
+        ? (!shut ? '<a class="btn" href="../study/' + CID + '-' + esc(m.id) + '.html">단계 ' + nStep + '</a>'
+                 : '<a class="btn d">단계 ' + nStep + '</a>')
+        : '<span class="non">—</span>';
       // 표준 강의 교안 — 이 교과 것이 있으면 그리로, 없으면 양식을 보여 준다
       var lpbtn = (m.lp && !shut)
         ? '<a class="btn" href="../' + esc(m.lp) + '">교안</a>'
@@ -245,6 +244,7 @@ TEMPLATE = """<meta charset="utf-8"><title>능력단위 모듈 목록</title>
            '<td class="c">' + esc(m.sd) + '</td><td class="c">' + esc(m.ed) + '</td>' +
            '<td class="c">' + esc(m.ev || '-') + '</td>' +
            '<td class="tdb">' + gbtn + '</td>' +
+           '<td class="tdb">' + sbtn + '</td>' +
            '<td class="tdb">' + ebtn + '</td>' +
            '<td class="tdb">' + lpbtn + tools + '</td></tr>';
     });
