@@ -157,10 +157,6 @@ def main():
     # 같이, 그 능력단위로 실제 수업에 쓰는 교안이 사이트 어디에 있는지도 모은다.
     # 과정마다 교안의 모양이 다르다 — c1 은 표준 강의 교안(6시트), c2 는 준비 교안.
     placed, mat = {}, {}
-    # 학습모듈 원문으로 만든 준비 교안이 있으면 그것을 먼저 쓴다 — 이 표는 과정이
-    # 아니라 능력단위를 보는 자리라, 능력단위마다 있는 교안이 더 맞다.
-    for g in sorted((SITE / "guides").glob("lm-*.html")):
-        mat[g.stem[3:]] = (f"../guides/{g.name}", "준비 교안")
     for c in (jsvar("courses.js", "CM_COURSES") or []):
         cid = c["id"]
         guides = jsvar(f"items-{cid}.js", "CM_GUIDES") or {}
@@ -175,6 +171,11 @@ def main():
                 mat[code] = ("../" + m["lp"], "표준 교안")
             elif m["id"] in guides:
                 mat[code] = (f"../guides/{m['id']}.html", "준비 교안")
+
+    # 과정이 쓰는 교안이 없는 능력단위에만 학습모듈로 만든 교안을 붙인다.
+    # 손으로 쓴 교안이 있으면 그것이 먼저다 — 자동 생성물보다 낫다.
+    for g in sorted((SITE / "guides").glob("lm-*.html")):
+        mat.setdefault(g.stem[3:], (f"../guides/{g.name}", "학습 가이드"))
 
     # 편성됐는데 재고에 없는 능력단위 — 매핑이 현실을 못 따라간 자리다.
     # 숨기지 않고 그 세분류를 related 로 안고 있는 도메인 페이지에 띄운다.

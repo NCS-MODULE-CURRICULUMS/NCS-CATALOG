@@ -51,6 +51,9 @@ SYMBOL = re.compile(r"^[\uC214-\uC217\uE000-\uF8FF\u25A0-\u25FF"
 TAIL_OK = set("수것때등중및시내외후전간이그저곳점")   # 홀로 쓰이는 말만
 HEAD_JOIN = set("의고를을이가는은에로와과도만서며나야죠던든록써듯")
 HANGUL = re.compile(r"[가-힣]")
+# 줄 첫머리에 홀로 설 수 없는 두 글자 어미 — 앞 낱말의 꼬리가 넘어온 것이다
+HEAD2 = ("하여", "하고", "하며", "하는", "한다", "해야", "되어", "되고", "된다",
+         "했다", "이다", "지만", "으로", "에서", "라도", "면서")
 
 
 def mend(a, b):
@@ -62,6 +65,8 @@ def mend(a, b):
         return a + " " + b
     if b[0] in HEAD_JOIN and (len(b) == 1 or not HANGUL.match(b[1]) or b[1] == " "
                               or len(b.split(" ")[0]) <= 2):
+        return a + b
+    if b.startswith(HEAD2) and not a.endswith(("다.", ".")):
         return a + b
     last = a.split(" ")[-1]
     if len(last) == 1 and last not in TAIL_OK:
@@ -186,7 +191,7 @@ def overview(texts, after):
             ELEM_CD.findall(t))
 
 
-def gist(lines, limit=220):
+def gist(lines, limit=480):
     """제목 아래 본문의 첫 한두 문장. 원문 인용이라 손대지 않고 자르기만 한다."""
     body = ""
     for ln in lines:
@@ -209,7 +214,7 @@ def gist(lines, limit=220):
         if out and len(out) + len(part) > limit:
             break
         out = (out + " " + part).strip()
-        if len(out) >= 60:
+        if len(out) >= 300:
             break
     return out[:limit].rstrip()
 
@@ -274,6 +279,74 @@ def topics(texts, a, b, printed_of):
                     "k": kind_of(title),
                     "s": gist([x for x, _ in lines[idx + 1:end]])})
     return out
+
+
+# 수행 내용 안의 작은 머리말들
+DO_HEADS = ("재료·자료", "재료･자료", "재료 · 자료",
+            "기기(장비·공구)", "기기(장비･공구)",
+            "안전·유의 사항", "안전･유의 사항", "수행 순서")
+DO_STOP = ("교수·학습 방법", "교수･학습 방법", "평  가", "평가", "학습 목표", "필요 지식")
+SKIP = ("출처:", "출처 :", "<표", "<그림", "[표", "[그림")
+
+
+def perform(lines):
+    """'수행 내용' 블록 -> 실습 절차. 표 안의 글은 건너뛴다(제목 줄이 아니다)."""
+    out, cur, sect = [], None, None
+    i = 0
+    while i < len(lines):
+        c = clean(lines[i])
+        i += 1
+        if not c:
+            continue
+        if c == "수행 내용":
+            title = ""
+            for j in range(i, min(i + 3, len(lines))):
+                t = clean(lines[j]).lstrip("/ ").strip()
+                if t and t not in DO_HEADS:
+                    title = t
+                    i = j + 1
+                    break
+            cur = {"title": title, "재료": [], "기기": [], "유의": [], "steps": []}
+            out.append(cur)
+            sect = None
+            continue
+        if cur is None:
+            continue
+        if c in DO_STOP:
+            cur = None
+            continue
+        if c in ("수행 tip", "수행tip"):
+            sect = None
+            continue
+        if c.startswith(DO_HEADS):
+            sect = ("재료" if c.startswith("재료") else
+                    "기기" if c.startswith("기기") else
+                    "유의" if c.startswith("안전") else "순서")
+            continue
+        if sect is None or c.startswith(SKIP):
+            continue
+        if sect == "순서":
+            head = SYMBOL.sub("", c)
+            if head != c and 4 < len(head) < 90:
+                cur["steps"].append({"h": head, "items": []})
+            else:
+                m = TOPIC.match(c)
+                if m and cur["steps"]:
+                    t = clean(m.group(2))
+                    if 5 < len(t) < 200:
+                        cur["steps"][-1]["items"].append(t)
+                elif (cur["steps"] and cur["steps"][-1]["items"]
+                        and not cur["steps"][-1]["items"][-1].endswith(("다.", "다", "."))
+                        and 1 < len(c) < 200 and not c[0].isdigit()):
+                    # 줄바꿈으로 잘린 절차 문장만 이어 붙인다. 이미 '…다.' 로 끝났으면
+                    # 다음 줄은 표 칸이거나 다른 문장이므로 건드리지 않는다.
+                    cur["steps"][-1]["items"][-1] = mend(
+                        cur["steps"][-1]["items"][-1], c)
+        elif len(c) < 200:
+            v = SYMBOL.sub("", c).strip()
+            if v and v not in cur[sect]:
+                cur[sect].append(v)
+    return [d for d in out if d["steps"] or d["재료"] or d["기기"]]
 
 
 def eval_of(texts, a, b):
@@ -352,6 +425,10 @@ def extract(pdf: Path, code: str, name: str):
         b = pdfpage(nxt) if nxt else (pdfpage(e.get("_evalpage")) or a + 12)
         c["goals"] = join_bullets(section(texts[a], "학습 목표", "필요 지식"))
         c["topics"] = topics(texts, a, b or a + 12, printed_of)
+        span = []
+        for k in range(a, min(b or a + 12, len(texts))):
+            span += texts[k].splitlines()
+        c["do"] = perform(span)
 
     starts = [pdfpage(e["contents"][0]["printed"]) for e in elements if e["contents"]]
     for n, e in enumerate(elements):
@@ -390,9 +467,11 @@ def main():
         n_g = sum(len(c["goals"]) for e in d["elements"] for c in e["contents"])
         n_t = sum(len(c["topics"]) for e in d["elements"] for c in e["contents"])
         n_m = sum(len(e["eval"]["methods"]) for e in d["elements"])
+        n_d = sum(len(st["items"]) for e in d["elements"] for c in e["contents"]
+                  for dd in c["do"] for st in dd["steps"])
         warn = "" if (d["elements"] and n_g and n_t and n_m) else "   ← 빈 곳 있음"
         print(f"{r['unit_name'][:22]:24} 요소 {len(d['elements'])} · 내용 {n_c:2} · "
-              f"목표 {n_g:2} · 소재 {n_t:3} · 평가방법 {n_m}{warn}")
+              f"목표 {n_g:2} · 소재 {n_t:3} · 실습 {n_d:3} · 평가방법 {n_m}{warn}")
         done += 1
     print(f"\n뽑음 {done} · 실패 {fail} -> {OUT.relative_to(ROOT)}")
 

@@ -1,26 +1,31 @@
 # -*- coding: utf-8 -*-
 """
-준비 교안을 만든다 — 학습모듈 원문의 짜임새대로, 강사가 무엇을 할지 적어서.
+학습 가이드를 만든다 — 훈련생이 읽고 이해하고 실습하는 한 장짜리 문서.
 
-표준 강의 교안(6시트)은 심사에 내는 서류다. 준비 교안은 그것과 다르다.
-수업 들어가기 전에 펼쳐 놓고 순서대로 따라가는 한 장짜리 문서다.
+표준 강의 교안(6시트)은 심사 서류고, 이것은 수업에서 쓰는 문서다.
+한 꼭지(학습내용)마다 네 덩어리로 간다.
 
-원문을 베끼지 않는다. 학습모듈 본문은 한국직업능력연구원 저작물이고
-그 안에 제3자 도표·사진이 섞여 있어 공개 사이트에 옮길 수 없다.
-대신 이렇게 한다.
+  무엇을 할 수 있게 되나   학습목표 (학습모듈 원문)
+  알아야 할 것            개념 — 필요 지식의 제목과 요지 (원문 인용)
+  해 보기                실습 — 준비물과 수행 순서 (원문 인용)
+  스스로 확인             학습목표를 체크리스트로
 
-  짜임새   능력단위요소(묶음) → 필요 지식 제목(단계)  — 원문 목차 그대로
-  길잡이   단계마다 '원문 몇 쪽을 보라' 와 [원문 N쪽] 단추 (로컬 서버에서 바로 열린다)
-  할 일    단계마다 무엇을 준비하고 무엇을 확인할지 — 우리가 쓴다
+원문 본문을 통째로 옮기지 않는다. 요지와 절차만 옮기고, 자세한 설명과 표·그림은
+꼭지마다 있는 [원문 N쪽] 단추로 학습모듈을 그 자리에서 펼쳐 본다.
+출처는 쪽마다 밝힌다(공공누리 제2유형 · 출처표시 · 상업적 이용 금지).
 
-  python NCS-CATALOG/scripts/gen/lm_extract.py 20010202     # 먼저
-  python NCS-CATALOG/scripts/gen/gen_guides.py 20010202
+  python NCS-CATALOG/scripts/gen/lm_extract.py 20010202         # 먼저
+  python NCS-CATALOG/scripts/gen/gen_guides.py 20010202         # 세분류 전체
+  python NCS-CATALOG/scripts/gen/gen_guides.py 2001020201_23v5  # 한 건만
 """
 import csv
 import html
 import json
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import deep  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -34,17 +39,49 @@ def esc(s):
 
 
 CSS = """<style>
-  /* 원문 인용 — 우리가 쓴 안내와 눈으로 구분되어야 한다 */
-  .bd blockquote{margin:10px 0 16px;padding:10px 14px;border-left:3px solid #000;
-                 background:#fafafa;font-size:13.5px;line-height:1.8;color:#222}
-  .bd p.none{color:#888;font-size:13px}
-  .bd ul.sub{margin:8px 0 16px;padding-left:20px;font-size:13.5px;line-height:1.9}
-  aside.side .v .btn{font-size:11.5px}
+  /* 학습 가이드 — 개념 / 실습 / 확인 세 덩어리가 눈으로 구분되어야 한다 */
+  .bd h4{margin:22px 0 8px;font-size:14px;padding-bottom:5px;border-bottom:1px solid #000}
+  .bd h4:first-child{margin-top:0}
+  .bd h5{margin:16px 0 5px;font-size:13px;font-weight:700}
+  .bd blockquote{margin:5px 0 12px;padding:9px 13px;border-left:3px solid #999;
+                 background:#fafafa;font-size:13px;line-height:1.8;color:#333}
+  .cc{margin:0 0 6px}
+  .cc dt{font-weight:700;font-size:13.5px;margin:14px 0 0}
+  .cc dd{margin:4px 0 0}
+  .doh{display:flex;gap:9px;align-items:baseline;margin:16px 0 4px;font-size:13.5px;
+       font-weight:700}
+  .doh b{flex:0 0 auto;width:21px;height:21px;line-height:19px;text-align:center;
+         border:1px solid #000;font-size:11.5px}
+  ol.dos{margin:2px 0 0 30px;padding:0;font-size:13px;line-height:1.85}
+  ol.dos li{margin:3px 0}
+  .prep{display:grid;grid-template-columns:76px 1fr;gap:3px 10px;font-size:12.5px;
+        border:1px solid #ccc;padding:10px 13px;margin:6px 0 2px;background:#fafafa}
+  .prep b{color:#555;font-weight:400}
+  ul.goal{margin:6px 0 0;padding-left:20px;font-size:13.5px;line-height:1.9}
+  ul.chk{margin:6px 0 0;padding:0;list-style:none;font-size:13.5px;line-height:1.95}
+  ul.chk li::before{content:"\\2610  "}
+  .none{color:#888;font-size:12.5px}
+  .srcline{font-size:11.5px;color:#888;margin:8px 0 0}
+  .tools{display:grid;gap:8px;margin:8px 0 4px}
+  .tool{border:1px solid #000;padding:10px 13px}
+  .tool b{font-size:13.5px}
+  .tool span{margin-left:8px;font-size:12px}
+  .tool p{margin:5px 0 0;font-size:12.5px;color:#444;line-height:1.75}
+  p.tip{margin:6px 0 0 30px;font-size:12.5px;color:#444;line-height:1.75}
+  p.tip b{border:1px solid #000;padding:0 5px;font-size:11px;margin-right:6px}
+  ul.miss{margin:8px 0 0;padding-left:20px;font-size:13px;line-height:1.85}
+  ul.miss li{margin:5px 0}
+  .ci{margin:0 0 22px;padding:0 0 0 13px;border-left:2px solid #ddd}
+  .ci h5{margin:0 0 6px;font-size:14px}
+  .ci p{margin:9px 0;font-size:13.5px;line-height:1.85}
+  .mini{border:1px solid #000;padding:11px 14px;margin:12px 0 0}
+  .mini b.t{display:inline-block;border:1px solid #000;padding:0 7px;
+            font-size:11px;margin-right:8px}
+  .mini ol.dos{margin:8px 0 0 22px}
 </style>"""
 
-
 SPY = """<script>
-/* 빠른 이동 — 지금 보는 단계를 표시하고, 좁은 화면에서는 여닫습니다. */
+/* 빠른 이동 — 지금 보는 꼭지를 표시하고, 좁은 화면에서는 여닫습니다. */
 (function () {
   var nav = document.getElementById('qnav'), btn = document.getElementById('qbtn');
   var links = [].slice.call(nav.querySelectorAll('a[href^="#st"]'));
@@ -64,115 +101,199 @@ SPY = """<script>
   });
   mark();
 })();
-</script>
-"""
-
-# 항목 성격에 따라 다른 안내를 붙인다. 원문에 없는 말이므로 우리 문장으로 쓴다.
-#   원문에서 볼 곳 / 준비 / 확인 — 셋 다 성격마다 다르다.
-BY_KIND = {
-    "개념": (
-        "정의 문장을 그대로 읽어 주지 마십시오. 한 번 읽고 덮은 다음, "
-        "자기 말로 다시 말할 수 있는지 스스로 확인하고 들어가십시오.",
-        "이 말을 처음 듣는 사람에게 30초 안에 설명한다면 무엇부터 말하겠습니까. "
-        "그 한 문장을 적어 두십시오.",
-        "훈련생이 정의를 외워 말하는지, 자기 말로 바꿔 말하는지 구분해서 들으십시오. "
-        "외운 것은 다음 주에 사라집니다."),
-    "절차": (
-        "단계의 개수와 순서를 먼저 잡으십시오. 순서가 왜 그 순서인지 말할 수 있어야 합니다.",
-        "칠판에 그릴 흐름도를 미리 한 번 그려 보십시오. "
-        "즉석에서 그리면 화살표가 엉킵니다.",
-        "훈련생에게 단계를 순서 없이 늘어놓고 다시 배열하게 해 보십시오. "
-        "순서를 못 맞추면 아직 절차를 모르는 것입니다."),
-    "도구": (
-        "실물을 준비하십시오. 화면 캡처든 예시 문서든, 눈으로 볼 것이 있어야 합니다.",
-        "현장에서 실제로 쓰는 것 하나를 골라 두십시오. "
-        "교재의 예시만으로는 잘 와닿지 않습니다.",
-        "훈련생이 그것을 직접 열어 보고 어디가 무엇인지 짚을 수 있으면 넘어갑니다."),
-    "판단": (
-        "여기는 «무엇인가» 가 아니라 «어느 쪽을 고를 것인가» 입니다. "
-        "판단 기준이 몇 개인지부터 세어 두십시오.",
-        "고르기 어려운 상황을 하나 만들어 두십시오. "
-        "기준이 서로 부딪치는 사례라야 판단을 연습할 수 있습니다.",
-        "훈련생이 «상황이 이러면 이쪽» 이라고 근거를 대며 고르면 넘어갑니다. "
-        "근거 없이 고르면 아직 기준이 안 선 것입니다."),
-    "내용": (
-        "이 항목이 앞뒤 항목과 어떻게 이어지는지 한 문장으로 말할 수 있어야 합니다.",
-        "슬라이드 한 장으로 줄여 보십시오. 한 장에 안 들어가면 아직 정리가 덜 된 것입니다.",
-        "훈련생이 이 항목을 자기 말로 설명할 수 있으면 넘어갑니다."),
-}
+</script>"""
 
 
-def step_html(n, t, content, methods, pdf_code, front, below=()):
-    """단계 하나. 왼쪽은 길잡이, 오른쪽은 원문 요지와 할 일."""
-    pg = t.get("p")
-    # 화면에는 인쇄된 쪽번호를, 뷰어에는 표지·차례만큼 민 실제 PDF 쪽을 준다
-    src = (f'<a class="btn" href="#" data-pdf="{esc(pdf_code)}" '
-           f'data-page="{pg + front}">원문 {pg}쪽</a>'
-           if pg else '<span class="non">—</span>')
-    kind = t.get("k", "내용")
-    look, prep, check = BY_KIND.get(kind, BY_KIND["내용"])
-    gist = t.get("s") or ""
-    if gist:
-        gist_html = f'<h4>원문 요지</h4>\n<blockquote>{esc(gist)}</blockquote>\n'
-    elif below:
-        # 본문 없이 곧장 하위 항목으로 갈라지는 제목이다. 무엇으로 갈라지는지 보여 준다.
-        gist_html = ('<h4>이 아래로 나뉩니다</h4>\n<ul class="sub">'
-                     + "".join(f'<li>{esc(x)}</li>' for x in below) + '</ul>\n')
-    else:
-        gist_html = ('<h4>원문 요지</h4>\n<p class="none">이 제목 아래는 원문에서 '
-                     '그림이나 표로 이어집니다. 원문 쪽을 펼쳐 보십시오.</p>\n')
+def pdf_btn(code, printed, front):
+    if not printed:
+        return '<span class="non">&mdash;</span>'
+    return (f'<a class="btn" href="#" data-pdf="{esc(code)}" '
+            f'data-page="{printed + front}">원문 {printed}쪽</a>')
+
+
+def concepts(topics, notes=None):
+    """알아야 할 것 — 항목마다 원문 정리 · 풀어 설명 · 그 항목의 실습.
+
+    원문 정리는 학습모듈에서 뽑은 것이고, 풀어 설명과 실습은 우리가 쓴 것이다
+    (deep/ 원고). 원고가 없는 항목은 원문 정리만 나온다."""
+    notes = notes or {}
+    if not topics:
+        return '<p class="none">이 꼭지는 실습 중심입니다. 바로 해 보기로 갑니다.</p>'
+    out, bare = [], []
+    for t in topics:
+        note = notes.get(t["t"])
+        if not t.get("s") and not note:
+            bare.append(t["t"])
+            continue
+        out.append(f"<div class='ci'><h5>{esc(t['t'])}</h5>")
+        if t.get("s"):
+            out.append(f"<blockquote>{esc(t['s'])}</blockquote>")
+        if note:
+            for para in note.get("more", []):
+                out.append(f"<p>{para}</p>")
+            if note.get("table"):
+                head, *rows = note["table"]
+                out.append("<table class='wide'><tr>"
+                           + "".join(f"<th>{esc(h)}</th>" for h in head) + "</tr>")
+                for r in rows:
+                    out.append("<tr>" + "".join(f"<td>{esc(v)}</td>" for v in r) + "</tr>")
+                out.append("</table>")
+            d = note.get("do")
+            if d:
+                out.append(f"<div class='mini'><b class='t'>해 보기</b> {esc(d['h'])}"
+                           + "<ol class='dos'>"
+                           + "".join(f"<li>{x}</li>" for x in d["steps"]) + "</ol>"
+                           + (f"<p class='tip'><b>tip</b> {d['tip']}</p>"
+                              if d.get("tip") else "") + "</div>")
+        out.append("</div>")
+    if bare:
+        out.append("<p class='none'>함께 나오는 것 — " + esc(" · ".join(bare)) + "</p>")
+    return "".join(out)
+
+
+def practice(dos):
+    """해 보기 — 준비물과 수행 순서. 원문 절차를 그대로 옮긴다."""
+    if not dos:
+        return ('<p class="none">학습모듈이 이 꼭지에 따로 제시한 실습 절차가 '
+                '없습니다. 앞 꼭지의 절차를 이어서 씁니다.</p>')
+    out = []
+    for d in dos:
+        if d["title"]:
+            out.append(f"<h5>{esc(d['title'])}</h5>")
+        rows = []
+        for key, lab in (("재료", "재료·자료"), ("기기", "기기·도구"), ("유의", "유의 사항")):
+            if d[key]:
+                rows.append(f"<b>{lab}</b><span>{esc(' / '.join(d[key]))}</span>")
+        if rows:
+            out.append(f"<div class='prep'>{''.join(rows)}</div>")
+        for i, st in enumerate(d["steps"], 1):
+            out.append(f"<div class='doh'><b>{i}</b><span>{esc(st['h'])}</span></div>")
+            if st["items"]:
+                out.append("<ol class='dos'>"
+                           + "".join(f"<li>{esc(x)}</li>" for x in st["items"])
+                           + "</ol>")
+    return "".join(out)
+
+
+def checklist(goals):
+    return ("<ul class='chk'>"
+            + ("".join(f"<li>{esc(g)}</li>" for g in goals) or "<li>&mdash;</li>")
+            + "</ul>")
+
+
+
+def deep_why(d):
+    """왜 하는가 — 개념보다 먼저 와야 한다. 이유를 모르고 외우면 남지 않는다."""
+    if not d or not d.get("why"):
+        return ""
+    return "<h4>왜 하는가</h4>" + "".join(f"<p>{x}</p>" for x in d["why"])
+
+
+def deep_blocks(d):
+    """혼자 할 수 있게 쓴 원고 — 도구 · 따라 하기 · 예제 · 흔한 실수 · 산출물."""
+    if not d:
+        return ""
+    out = []
+
+    if d.get("tools"):
+        out.append("<h4>쓰는 도구</h4><div class='tools'>")
+        for t in d["tools"]:
+            link = (f'<a href="{esc(t["url"])}">{esc(t["url"])}</a>'
+                    if t.get("url") else "")
+            out.append(f"<div class='tool'><b>{esc(t['name'])}</b>"
+                       f"{'<span>' + link + '</span>' if link else ''}"
+                       f"<p>{t['note']}</p></div>")
+        out.append("</div>")
+
+    if d.get("walk"):
+        out.append("<h4>따라 하기</h4>")
+        for i, w in enumerate(d["walk"], 1):
+            out.append(f"<div class='doh'><b>{i}</b><span>{esc(w['h'])}</span></div>")
+            out.append("<ol class='dos'>"
+                       + "".join(f"<li>{x}</li>" for x in w["steps"]) + "</ol>")
+            if w.get("tip"):
+                out.append(f"<p class='tip'><b>tip</b> {w['tip']}</p>")
+
+    ex = d.get("example")
+    if ex:
+        out.append(f"<h4>{esc(ex['title'])}</h4>")
+        if ex.get("intro"):
+            out.append(f"<p>{ex['intro']}</p>")
+        if ex.get("table"):
+            head, *rows = ex["table"]
+            out.append("<table class='wide'><tr>"
+                       + "".join(f"<th>{esc(h)}</th>" for h in head) + "</tr>")
+            for r in rows:
+                out.append("<tr>" + "".join(
+                    f"<td{' class=\'nm\'' if k else ''}>{esc(v)}</td>"
+                    for k, v in enumerate(r)) + "</tr>")
+            out.append("</table>")
+        if ex.get("note"):
+            out.append(f"<p class='srcline'>{ex['note']}</p>")
+
+    if d.get("mistakes"):
+        out.append("<h4>흔한 실수</h4><ul class='miss'>"
+                   + "".join(f"<li>{x}</li>" for x in d["mistakes"]) + "</ul>")
+
+    if d.get("output"):
+        out.append("<h4>내야 할 것</h4><ul class='chk'>"
+                   + "".join(f"<li>{x}</li>" for x in d["output"]) + "</ul>")
+
+    return "".join(out)
+
+
+def section(n, e, c, code, front, deep_d=None):
+    """한 꼭지 = 학습내용 하나."""
+    n_do = sum(len(s["items"]) for d in c["do"] for s in d["steps"])
     return f"""
     <div class="step" id="st{n}">
-      <h3><i>{n}</i>{esc(t["t"])}</h3>
+      <h3><i>{n}</i>{esc(c['no'])}. {esc(c['title'])}</h3>
       <aside class="side">
-        <p class="pt">{esc(content)}</p>
-        <b class="sh">성격</b>
-        <p class="v">{esc(kind)}</p>
-        <b class="sh">원문</b>
-        <p class="v">{src}</p>
-        <b class="sh">평가</b>
-        <p class="src">{esc(" · ".join(methods) or "—")}</p>
+        <p class="pt">{esc(c['goals'][0] if c['goals'] else e['name'])}</p>
+        <b class="sh">능력단위요소</b>
+        <p class="v">{esc(e['name'])}</p>
+        <b class="sh">학습모듈</b>
+        <p class="v">{pdf_btn(code, c['printed'], front)}</p>
+        <b class="sh">분량</b>
+        <p class="src">개념 {len(c['topics'])}항목 · 실습 {n_do}절차</p>
       </aside>
       <div class="bd">
-{gist_html}
-<h4>읽는 법</h4>
-<p>{esc(look)}</p>
-<h4>준비</h4>
-<p>{esc(prep)}</p>
+<h4>이 꼭지를 마치면</h4>
+<ul class="goal">{"".join(f"<li>{esc(g)}</li>" for g in c["goals"]) or "<li>&mdash;</li>"}</ul>
+
+{deep_why(deep_d)}
+<h4>알아야 할 것</h4>
+{concepts(c["topics"], (deep_d or {}).get("topics"))}
+
+{deep_blocks(deep_d)}
+<h4>학습모듈이 제시한 실습 절차</h4>
+{practice(c["do"])}
+
+<h4>스스로 확인</h4>
+{checklist([st["h"] for d in c["do"] for st in d["steps"]] + c["goals"])}
+<p class="srcline">평가 방법 — {esc(" · ".join(e["eval"]["methods"]) or "—")}</p>
 <div class="try">
-  <b class="t">확인</b>
-  {esc(check)}
+  <b class="t">막히면</b>
+  옆의 <b>원문 {c['printed']}쪽</b> 단추를 누르십시오.
+  이 꼭지의 자세한 설명과 표·그림이 그 자리에 있습니다.
 </div>
       </div>
     </div>
 """
 
 
-def page(unit, lm, lv, hours):
-    elems = lm["elements"]
+def page(unit, lm, lv, hours, deep_d=None):
+    elems, front = lm["elements"], lm.get("front", 0)
+    deep_d = deep_d or {}
     nav, body, n = [], [], 0
     for e in elems:
         nav.append(f'<i class="qg">{esc(e["name"])}</i>')
         steps = []
         for c in e["contents"]:
-            for k, t in enumerate(c["topics"]):
-                n += 1
-                nav.append(f'<a href="#st{n}"><b>{n}</b>'
-                           f'<span>{esc(t["t"])}</span></a>')
-                below = [x["t"] for x in c["topics"][k + 1:k + 5]] if not t.get("s") else []
-                steps.append(step_html(n, t, c["title"],
-                                       e["eval"]["methods"], unit["code"],
-                                       lm.get("front", 0), below))
-            if not c["topics"]:
-                n += 1
-                nav.append(f'<a href="#st{n}"><b>{n}</b>'
-                           f'<span>{esc(c["title"])}</span></a>')
-                steps.append(step_html(n, {"t": c["title"], "p": c["printed"],
-                                           "k": "내용",
-                                           "s": " / ".join(c["goals"])},
-                                       c["title"],
-                                       e["eval"]["methods"], unit["code"],
-                                       lm.get("front", 0)))
+            n += 1
+            nav.append(f'<a href="#st{n}"><b>{n}</b><span>{esc(c["title"])}</span></a>')
+            steps.append(section(n, e, c, unit["code"], front,
+                                 deep_d.get(c["no"])))
         body.append(
             f'<div class="lv">\n'
             f'  <div class="lvh"><b>{esc(e["no"])}. {esc(e["name"])}</b>'
@@ -185,8 +306,17 @@ def page(unit, lm, lv, hours):
         for m in e["eval"]["methods"]:
             if m not in methods:
                 methods.append(m)
+    n_top = sum(len(c["topics"]) for e in elems for c in e["contents"])
+    n_do = sum(len(s["items"]) for e in elems for c in e["contents"]
+               for d in c["do"] for s in d["steps"])
+    rows = "\n".join(
+        f'  <tr><td class="c">{i}</td><td>{esc(c["no"])}. {esc(c["title"])}</td>'
+        f'<td>{esc(e["name"])}</td><td class="c">{len(c["topics"])}</td>'
+        f'<td class="c">{sum(len(s["items"]) for d in c["do"] for s in d["steps"])}</td>'
+        f'<td class="c">{"있음" if c["no"] in deep_d else "—"}</td></tr>'
+        for i, (e, c) in enumerate(((e, c) for e in elems for c in e["contents"]), 1))
 
-    return f"""<meta charset="utf-8"><title>{esc(unit["name"])} — 준비 교안</title>
+    return f"""<meta charset="utf-8"><title>{esc(unit["name"])} — 학습 가이드</title>
 <link rel="stylesheet" href="../assets/site.css">
 <link rel="stylesheet" href="../assets/guide.css">
 {CSS}
@@ -198,7 +328,7 @@ def page(unit, lm, lv, hours):
 <div class="top"><div class="tbar">
   <div class="brand"><a href="../index.html">과정관리</a><small>커리큘럼 /
   <a href="../curriculum/{esc(unit["dom"])}-{esc(unit["ncs"])}.html">{esc(unit["subd"])}</a>
-  / {esc(unit["name"])} / 준비 교안</small></div>
+  / {esc(unit["name"])} / 학습 가이드</small></div>
   <div class="tuser" id="tUser"><b id="tName"></b><button id="tOut" type="button">로그아웃</button></div>
 </div></div>
 <script>EXAM_AUTH.paintTop("../");</script>
@@ -206,89 +336,82 @@ def page(unit, lm, lv, hours):
 <button id="qbtn" type="button" aria-label="빠른 이동">목차</button>
 
 <nav id="qnav" aria-label="빠른 이동">
-  <a class="qt" href="#top"><b>↑</b><span>맨 위로</span></a>
+  <a class="qt" href="#top"><b>&uarr;</b><span>맨 위로</span></a>
   {"".join(nav)}
 </nav>
 
 <div class="wrap" id="top">
 
-<h1>{esc(unit["name"])} — 준비 교안</h1>
+<h1>{esc(unit["name"])} — 학습 가이드</h1>
 <p class="sub">능력단위 <code>{esc(unit["code"])}</code> · {lv or "-"}수준 ·
-{hours}시간 · 단계 {n}개 · 평가 {esc(" · ".join(methods) or "-")}</p>
+{hours}시간 · 꼭지 {n}개 · 개념 {n_top}항목 · 실습 {n_do}절차</p>
 
-<h2 class="sec" id="g0">0. 이 교과는 무엇인가</h2>
+<h2 class="sec" id="g0">0. 시작하기 전에</h2>
 <div class="sect">
   <aside class="side">
     <p class="pt">{esc(lm["goal"])}</p>
-    <b class="sh">선수학습</b>
+    <b class="sh">먼저 알아야 할 것</b>
     <p class="v">{esc(lm.get("prereq") or "—")}</p>
-    <b class="sh">원문</b>
-    <p class="src">{esc(lm["src"])} ({lm["pages"]}쪽)</p>
+    <b class="sh">평가</b>
+    <p class="src">{esc(" · ".join(methods) or "—")}</p>
   </aside>
   <div class="bd">
-<p>이 문서는 <b>수업 준비용</b>입니다. 심사에 내는 표준 강의 교안(6시트)과 다릅니다.
-   차례와 단계는 <b>NCS 학습모듈 원문의 짜임새</b>를 그대로 따랐고,
-   각 단계에 <b>무엇을 준비하고 무엇을 확인할지</b>를 적었습니다.</p>
-<p><b>내용은 원문을 보십시오.</b> 학습모듈 본문은 한국직업능력연구원 저작물이라
-   이 사이트에 옮겨 두지 않습니다. 단계마다 있는 <b>[원문 N쪽]</b> 단추가
-   그 자리를 바로 펼칩니다(로컬 서버로 열었을 때).</p>
+<h4>이 문서를 쓰는 법</h4>
+<p>꼭지마다 <b>무엇을 할 수 있게 되나 → 알아야 할 것 → 해 보기 → 스스로 확인</b>
+   순서입니다. 읽고 끝내지 말고 <b>해 보기</b>를 손으로 따라 하십시오.
+   마지막 <b>스스로 확인</b>을 전부 «할 수 있다» 고 말할 수 있으면 다음 꼭지로 갑니다.</p>
+<p>자세한 설명과 표·그림은 <b>학습모듈 원문</b>에 있습니다. 꼭지마다 있는
+   <b>[원문 N쪽]</b> 단추를 누르면 그 자리가 바로 펼쳐집니다.</p>
 
 <h4>핵심 용어</h4>
 <p>{esc(", ".join(lm.get("keywords") or []) or "—")}</p>
 
-<h4>능력단위요소</h4>
+<h4>차례</h4>
 <table class="wide">
-  <tr><th style="width:48px">번호</th><th style="width:230px">요소</th>
-      <th>학습 내용</th><th style="width:74px">단계</th></tr>
-{chr(10).join(
-    f'  <tr><td class="c">{esc(e["no"])}</td><td>{esc(e["name"])}</td>'
-    f'<td>{esc(" · ".join(c["title"] for c in e["contents"]))}</td>'
-    f'<td class="c">{sum(len(c["topics"]) or 1 for c in e["contents"])}</td></tr>'
-    for e in elems)}
+  <tr><th style="width:44px">꼭지</th><th style="width:250px">학습 내용</th>
+      <th>능력단위요소</th><th style="width:58px">개념</th><th style="width:58px">실습</th>
+      <th style="width:70px">실습원고</th></tr>
+{rows}
 </table>
-
-<div class="try">
-  <b class="t">쓰는 법</b>
-  왼쪽 <b>목차</b>에서 오늘 나갈 단계를 고르십시오.
-  한 단계가 대략 수업 10~20분에 해당합니다.
-</div>
   </div>
 </div>
 
 {"".join(body)}
-<footer>담당 정우균 · 출처 NCS 학습모듈(한국직업능력연구원, 공공누리 제2유형) ·
-원문 {esc(lm["src"])}</footer>
+<footer>담당 정우균 · 개념과 절차는 <b>NCS 학습모듈 {esc(lm["src"])}</b> 에서
+옮긴 것입니다 — 한국직업능력연구원 · 공공누리 제2유형(출처표시 · 상업적 이용 금지)</footer>
 </div>
 {SPY}"""
 
 
 def main():
-    only = sys.argv[1] if len(sys.argv) > 1 else None
+    arg = sys.argv[1] if len(sys.argv) > 1 else None
     ncs = {r["능력단위코드"]: r for r in
            csv.DictReader(open(DATA / "competency-units.csv", encoding="utf-8-sig"))}
     st = json.loads((DATA / "curriculum-status.json").read_text(encoding="utf-8"))
     OUT.mkdir(parents=True, exist_ok=True)
 
-    made = skip = 0
+    made = 0
     for uc, u in sorted(st["units"].items(), key=lambda kv: (kv[1]["s"], kv[1]["seq"])):
-        if only and u["s"] != only:
+        if arg and arg not in (u["s"], uc):
             continue
         f = LM / f"{uc}.json"
         if not f.exists():
-            skip += 1
             continue
         lm = json.loads(f.read_text(encoding="utf-8"))
         r = ncs.get(uc, {})
         lv = int(r["수준"]) if r.get("수준", "").isdigit() else None
         unit = {"code": uc, "name": u["n"], "ncs": u["s"], "dom": u["d"],
                 "subd": r.get("세분류", "")}
-        htm = page(unit, lm, lv, u.get("hr") or 0)
+        htm = page(unit, lm, lv, u.get("hr") or 0, deep.load(uc))
         (OUT / f"lm-{uc}.html").write_text(htm, encoding="utf-8")
-        n = htm.count('class="step"')
         made += 1
-        print(f"{u['seq']} {u['n'][:22]:24} 단계 {n:3} · {len(htm) // 1024:3}KB")
+        n_t = sum(len(c["topics"]) for e in lm["elements"] for c in e["contents"])
+        n_d = sum(len(s["items"]) for e in lm["elements"] for c in e["contents"]
+                  for d in c["do"] for s in d["steps"])
+        print(f"{u['seq']} {u['n'][:22]:24} 꼭지 {htm.count('class=\"step\"'):2} · "
+              f"개념 {n_t:3} · 실습 {n_d:3} · {len(htm) // 1024:3}KB")
 
-    print(f"\n준비 교안 {made}건 · 건너뜀 {skip} -> COURSE-MANAGEMENT/guides/lm-*.html")
+    print(f"\n학습 가이드 {made}건 -> COURSE-MANAGEMENT/guides/lm-*.html")
 
 
 if __name__ == "__main__":
